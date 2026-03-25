@@ -50,18 +50,14 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' })
 })
 
-if (!process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`Backend running on http://localhost:${PORT}`)
+app.listen(PORT, () => {
+  console.log(`Backend running on http://localhost:${PORT}`)
 
-    connectWhatsApp().catch((err) => {
-      console.log(`[WhatsApp] Erro ao iniciar: ${err.message}`)
-    })
-
-    startCron().catch((err) => {
-      console.log(`[Cron] Erro ao iniciar: ${err.message}`)
-    })
+  connectWhatsApp().catch((err) => {
+    console.log(`[WhatsApp] Erro ao iniciar: ${err.message}`)
   })
-}
 
-export default app
+  startCron().catch((err) => {
+    console.log(`[Cron] Erro ao iniciar: ${err.message}`)
+  })
+})

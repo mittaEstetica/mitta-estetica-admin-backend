@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: mitta-estetica-admin-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
