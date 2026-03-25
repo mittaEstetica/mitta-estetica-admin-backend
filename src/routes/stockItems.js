@@ -18,23 +18,23 @@ function toJSON(row) {
   }
 }
 
-router.get('/', (_req, res) => {
-  const rows = db.prepare('SELECT * FROM stock_items ORDER BY name ASC').all()
+router.get('/', async (_req, res) => {
+  const rows = await db.prepare('SELECT * FROM stock_items ORDER BY name ASC').all()
   res.json(rows.map(toJSON))
 })
 
-router.get('/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM stock_items WHERE id = ?').get(req.params.id)
+router.get('/:id', async (req, res) => {
+  const row = await db.prepare('SELECT * FROM stock_items WHERE id = ?').get(req.params.id)
   if (!row) return res.status(404).json({ error: 'Stock item not found' })
   res.json(toJSON(row))
 })
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { name, category, quantity, minQuantity, unit, costPrice } = req.body
   const id = crypto.randomUUID()
   const createdAt = new Date().toISOString()
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO stock_items (id, name, category, quantity, min_quantity, unit, cost_price, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(id, name, category || '', quantity || 0, minQuantity || 0, unit || 'unidade', costPrice || 0, createdAt)
@@ -42,22 +42,22 @@ router.post('/', (req, res) => {
   res.status(201).json({ id, name, category: category || '', quantity: quantity || 0, minQuantity: minQuantity || 0, unit: unit || 'unidade', costPrice: costPrice || 0, createdAt })
 })
 
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const { name, category, quantity, minQuantity, unit, costPrice } = req.body
-  const existing = db.prepare('SELECT * FROM stock_items WHERE id = ?').get(req.params.id)
+  const existing = await db.prepare('SELECT * FROM stock_items WHERE id = ?').get(req.params.id)
   if (!existing) return res.status(404).json({ error: 'Stock item not found' })
 
-  db.prepare(`
+  await db.prepare(`
     UPDATE stock_items SET name = ?, category = ?, quantity = ?, min_quantity = ?, unit = ?, cost_price = ?
     WHERE id = ?
   `).run(name, category || '', quantity ?? existing.quantity, minQuantity ?? existing.min_quantity, unit || existing.unit, costPrice ?? existing.cost_price, req.params.id)
 
-  const updated = db.prepare('SELECT * FROM stock_items WHERE id = ?').get(req.params.id)
+  const updated = await db.prepare('SELECT * FROM stock_items WHERE id = ?').get(req.params.id)
   res.json(toJSON(updated))
 })
 
-router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM stock_items WHERE id = ?').run(req.params.id)
+router.delete('/:id', async (req, res) => {
+  const result = await db.prepare('DELETE FROM stock_items WHERE id = ?').run(req.params.id)
   if (result.changes === 0) return res.status(404).json({ error: 'Stock item not found' })
   res.json({ success: true })
 })

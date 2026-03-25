@@ -19,27 +19,27 @@ function toJSON(row) {
   }
 }
 
-router.get('/', (_req, res) => {
-  const rows = db.prepare('SELECT * FROM collaborators ORDER BY created_at DESC').all()
+router.get('/', async (_req, res) => {
+  const rows = await db.prepare('SELECT * FROM collaborators ORDER BY created_at DESC').all()
   res.json(rows.map(toJSON))
 })
 
-router.get('/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM collaborators WHERE id = ?').get(req.params.id)
+router.get('/:id', async (req, res) => {
+  const row = await db.prepare('SELECT * FROM collaborators WHERE id = ?').get(req.params.id)
   if (!row) return res.status(404).json({ error: 'Collaborator not found' })
   res.json(toJSON(row))
 })
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { name, phone, email, commissionPercent, role, active, password } = req.body
   const id = crypto.randomUUID()
   const createdAt = new Date().toISOString()
   const pwHash = password ? hashPassword(password) : ''
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO collaborators (id, name, phone, email, commission_percent, role, active, password_hash, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, name, phone || '', email || '', commissionPercent || 0, role || '', active !== false ? 1 : 0, pwHash, createdAt)
+  `).run(id, name, phone || '', email || '', commissionPercent || 0, role || '', active !== false, pwHash, createdAt)
 
   res.status(201).json({
     id, name, phone: phone || '', email: email || '',
@@ -48,26 +48,26 @@ router.post('/', (req, res) => {
   })
 })
 
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const { name, phone, email, commissionPercent, role, active, password } = req.body
-  const existing = db.prepare('SELECT * FROM collaborators WHERE id = ?').get(req.params.id)
+  const existing = await db.prepare('SELECT * FROM collaborators WHERE id = ?').get(req.params.id)
   if (!existing) return res.status(404).json({ error: 'Collaborator not found' })
 
-  db.prepare(`
+  await db.prepare(`
     UPDATE collaborators SET name = ?, phone = ?, email = ?, commission_percent = ?, role = ?, active = ?
     WHERE id = ?
-  `).run(name, phone || '', email || '', commissionPercent || 0, role || '', active ? 1 : 0, req.params.id)
+  `).run(name, phone || '', email || '', commissionPercent || 0, role || '', !!active, req.params.id)
 
   if (password) {
-    db.prepare('UPDATE collaborators SET password_hash = ? WHERE id = ?').run(hashPassword(password), req.params.id)
+    await db.prepare('UPDATE collaborators SET password_hash = ? WHERE id = ?').run(hashPassword(password), req.params.id)
   }
 
-  const updated = db.prepare('SELECT * FROM collaborators WHERE id = ?').get(req.params.id)
+  const updated = await db.prepare('SELECT * FROM collaborators WHERE id = ?').get(req.params.id)
   res.json(toJSON(updated))
 })
 
-router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM collaborators WHERE id = ?').run(req.params.id)
+router.delete('/:id', async (req, res) => {
+  const result = await db.prepare('DELETE FROM collaborators WHERE id = ?').run(req.params.id)
   if (result.changes === 0) return res.status(404).json({ error: 'Collaborator not found' })
   res.json({ success: true })
 })

@@ -27,12 +27,12 @@ router.post('/send-test', async (req, res) => {
   }
 })
 
-router.get('/reminders/preview', (req, res) => {
+router.get('/reminders/preview', async (req, res) => {
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
   const tomorrowStr = tomorrow.toISOString().split('T')[0]
 
-  const appointments = db.prepare(`
+  const appointments = await db.prepare(`
     SELECT a.*, p.name as patient_name, p.phone as patient_phone
     FROM appointments a
     JOIN patients p ON p.id = a.patient_id
@@ -72,7 +72,7 @@ router.post('/reminders/send', async (req, res) => {
 
   const dateFormatted = new Date(tomorrowStr + 'T00:00:00').toLocaleDateString('pt-BR')
 
-  const appointments = db.prepare(`
+  const appointments = await db.prepare(`
     SELECT a.*, p.name as patient_name, p.phone as patient_phone
     FROM appointments a
     JOIN patients p ON p.id = a.patient_id
@@ -103,23 +103,22 @@ router.post('/reminders/send', async (req, res) => {
   res.json({ date: tomorrowStr, results, sent: results.filter((r) => r.status === 'sent').length, failed: results.filter((r) => r.status === 'error').length })
 })
 
-// Settings for message template
-router.get('/settings', (_req, res) => {
-  const row = db.prepare("SELECT value FROM settings WHERE key = 'whatsapp_template'").get()
-  const cronRow = db.prepare("SELECT value FROM settings WHERE key = 'whatsapp_cron_hour'").get()
+router.get('/settings', async (_req, res) => {
+  const row = await db.prepare("SELECT value FROM settings WHERE key = 'whatsapp_template'").get()
+  const cronRow = await db.prepare("SELECT value FROM settings WHERE key = 'whatsapp_cron_hour'").get()
   res.json({
     messageTemplate: row?.value || `Oii, {nome}, tudo bem?\nPodemos confirmar seu horário de atendimento, amanhã às {horario}?\n\nTemos tolerância de 10 minutos para atrasos. Caso não possa comparecer, pedimos que nos avise com antecedência para reagendarmos.\n\nNosso endereço: Rua Açores, nº 68, sala 305.`,
     cronHour: cronRow?.value || '8',
   })
 })
 
-router.put('/settings', (req, res) => {
+router.put('/settings', async (req, res) => {
   const { messageTemplate, cronHour } = req.body
   if (messageTemplate !== undefined) {
-    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('whatsapp_template', ?)").run(messageTemplate)
+    await db.prepare("INSERT INTO settings (key, value) VALUES ('whatsapp_template', ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value").run(messageTemplate)
   }
   if (cronHour !== undefined) {
-    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('whatsapp_cron_hour', ?)").run(String(cronHour))
+    await db.prepare("INSERT INTO settings (key, value) VALUES ('whatsapp_cron_hour', ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value").run(String(cronHour))
   }
   res.json({ success: true })
 })

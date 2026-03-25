@@ -20,23 +20,23 @@ function toJSON(row) {
   }
 }
 
-router.get('/', (_req, res) => {
-  const rows = db.prepare('SELECT * FROM patients ORDER BY created_at DESC').all()
+router.get('/', async (_req, res) => {
+  const rows = await db.prepare('SELECT * FROM patients ORDER BY created_at DESC').all()
   res.json(rows.map(toJSON))
 })
 
-router.get('/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id)
+router.get('/:id', async (req, res) => {
+  const row = await db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id)
   if (!row) return res.status(404).json({ error: 'Patient not found' })
   res.json(toJSON(row))
 })
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { name, phone, email, cpf, birthDate, address, photo, notes } = req.body
   const id = crypto.randomUUID()
   const createdAt = new Date().toISOString()
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO patients (id, name, phone, email, cpf, birth_date, address, photo, notes, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(id, name, phone || '', email || '', cpf || '', birthDate || '', address || '', photo || null, notes || '', createdAt)
@@ -44,22 +44,22 @@ router.post('/', (req, res) => {
   res.status(201).json({ id, name, phone: phone || '', email: email || '', cpf: cpf || '', birthDate: birthDate || '', address: address || '', photo: photo || null, notes: notes || '', createdAt })
 })
 
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const { name, phone, email, cpf, birthDate, address, photo, notes } = req.body
-  const existing = db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id)
+  const existing = await db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id)
   if (!existing) return res.status(404).json({ error: 'Patient not found' })
 
-  db.prepare(`
+  await db.prepare(`
     UPDATE patients SET name = ?, phone = ?, email = ?, cpf = ?, birth_date = ?, address = ?, photo = ?, notes = ?
     WHERE id = ?
   `).run(name, phone || '', email || '', cpf || '', birthDate || '', address || '', photo || null, notes || '', req.params.id)
 
-  const updated = db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id)
+  const updated = await db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id)
   res.json(toJSON(updated))
 })
 
-router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM patients WHERE id = ?').run(req.params.id)
+router.delete('/:id', async (req, res) => {
+  const result = await db.prepare('DELETE FROM patients WHERE id = ?').run(req.params.id)
   if (result.changes === 0) return res.status(404).json({ error: 'Patient not found' })
   res.json({ success: true })
 })

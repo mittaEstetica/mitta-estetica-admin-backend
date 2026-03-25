@@ -23,25 +23,25 @@ function toJSON(row) {
   }
 }
 
-router.get('/', (_req, res) => {
-  const rows = db.prepare('SELECT * FROM users ORDER BY created_at DESC').all()
+router.get('/', async (_req, res) => {
+  const rows = await db.prepare('SELECT * FROM users ORDER BY created_at DESC').all()
   res.json(rows.map(toJSON))
 })
 
-router.get('/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
+router.get('/:id', async (req, res) => {
+  const row = await db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
   if (!row) return res.status(404).json({ error: 'Usuário não encontrado' })
   res.json(toJSON(row))
 })
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { username, password, name, role, permissions, collaboratorId, active } = req.body
 
   if (!username || !password) {
     return res.status(400).json({ error: 'Usuário e senha são obrigatórios' })
   }
 
-  const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username)
+  const existing = await db.prepare('SELECT id FROM users WHERE username = ?').get(username)
   if (existing) {
     return res.status(409).json({ error: 'Este nome de usuário já existe' })
   }
@@ -50,7 +50,7 @@ router.post('/', (req, res) => {
   const createdAt = new Date().toISOString()
   const perms = JSON.stringify(permissions || ['*'])
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO users (id, username, password_hash, name, role, permissions, collaborator_id, active, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
@@ -61,27 +61,27 @@ router.post('/', (req, res) => {
     role || 'admin',
     perms,
     collaboratorId || null,
-    active !== false ? 1 : 0,
+    active !== false,
     createdAt,
   )
 
-  const created = db.prepare('SELECT * FROM users WHERE id = ?').get(id)
+  const created = await db.prepare('SELECT * FROM users WHERE id = ?').get(id)
   res.status(201).json(toJSON(created))
 })
 
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const { username, password, name, role, permissions, collaboratorId, active } = req.body
-  const existing = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
+  const existing = await db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
   if (!existing) return res.status(404).json({ error: 'Usuário não encontrado' })
 
   if (username && username !== existing.username) {
-    const dup = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(username, req.params.id)
+    const dup = await db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(username, req.params.id)
     if (dup) return res.status(409).json({ error: 'Este nome de usuário já existe' })
   }
 
   const perms = permissions ? JSON.stringify(permissions) : existing.permissions
 
-  db.prepare(`
+  await db.prepare(`
     UPDATE users SET username = ?, name = ?, role = ?, permissions = ?, collaborator_id = ?, active = ?
     WHERE id = ?
   `).run(
@@ -90,27 +90,27 @@ router.put('/:id', (req, res) => {
     role || existing.role,
     perms,
     collaboratorId !== undefined ? (collaboratorId || null) : existing.collaborator_id,
-    active !== undefined ? (active ? 1 : 0) : existing.active,
+    active !== undefined ? !!active : existing.active,
     req.params.id,
   )
 
   if (password) {
-    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), req.params.id)
+    await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), req.params.id)
   }
 
-  const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
+  const updated = await db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
   res.json(toJSON(updated))
 })
 
-router.delete('/:id', (req, res) => {
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
+router.delete('/:id', async (req, res) => {
+  const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
   if (!user) return res.status(404).json({ error: 'Usuário não encontrado' })
 
   if (user.username === 'admin') {
     return res.status(403).json({ error: 'Não é possível excluir o administrador principal' })
   }
 
-  db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id)
+  await db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id)
   res.json({ success: true })
 })
 

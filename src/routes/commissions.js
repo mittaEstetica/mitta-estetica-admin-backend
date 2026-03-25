@@ -18,13 +18,13 @@ function toJSON(row) {
   }
 }
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const { collaboratorId } = req.query
   let rows
   if (collaboratorId) {
-    rows = db.prepare('SELECT * FROM commissions WHERE collaborator_id = ? ORDER BY created_at DESC').all(collaboratorId)
+    rows = await db.prepare('SELECT * FROM commissions WHERE collaborator_id = ? ORDER BY created_at DESC').all(collaboratorId)
   } else {
-    rows = db.prepare('SELECT * FROM commissions ORDER BY created_at DESC').all()
+    rows = await db.prepare('SELECT * FROM commissions ORDER BY created_at DESC').all()
   }
   res.json(rows.map(toJSON))
 })

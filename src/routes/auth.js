@@ -3,7 +3,6 @@ import db, { hashPassword } from '../database.js'
 
 const router = Router()
 
-// In-memory token store  { token: { userId, role, collaboratorId, username } }
 export const sessions = new Map()
 
 function generateToken() {
@@ -12,7 +11,7 @@ function generateToken() {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { username, password } = req.body
   if (!username || !password) {
     return res.status(400).json({ error: 'Usuário e senha são obrigatórios' })
@@ -20,8 +19,7 @@ router.post('/login', (req, res) => {
 
   const hash = hashPassword(password)
 
-  // Try users table first
-  const user = db.prepare('SELECT * FROM users WHERE username = ? AND password_hash = ? AND active = 1').get(username, hash)
+  const user = await db.prepare('SELECT * FROM users WHERE username = ? AND password_hash = ? AND active = true').get(username, hash)
   if (user) {
     let permissions = ['*']
     try { permissions = JSON.parse(user.permissions) } catch (_) { /* fallback */ }
@@ -48,9 +46,8 @@ router.post('/login', (req, res) => {
     })
   }
 
-  // Try collaborator login (username = email)
-  const collab = db.prepare(
-    'SELECT * FROM collaborators WHERE email = ? AND password_hash = ? AND active = 1',
+  const collab = await db.prepare(
+    'SELECT * FROM collaborators WHERE email = ? AND password_hash = ? AND active = true',
   ).get(username, hash)
 
   if (collab) {

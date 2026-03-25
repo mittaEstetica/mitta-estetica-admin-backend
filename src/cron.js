@@ -4,13 +4,13 @@ import { sendMessage, getStatus } from './whatsapp.js'
 
 let cronJob = null
 
-function getTemplate() {
-  const row = db.prepare("SELECT value FROM settings WHERE key = 'whatsapp_template'").get()
+async function getTemplate() {
+  const row = await db.prepare("SELECT value FROM settings WHERE key = 'whatsapp_template'").get()
   return row?.value || `Oii, {nome}, tudo bem?\nPodemos confirmar seu horário de atendimento, amanhã às {horario}?\n\nTemos tolerância de 10 minutos para atrasos. Caso não possa comparecer, pedimos que nos avise com antecedência para reagendarmos.\n\nNosso endereço: Rua Açores, nº 68, sala 305.`
 }
 
-function getCronHour() {
-  const row = db.prepare("SELECT value FROM settings WHERE key = 'whatsapp_cron_hour'").get()
+async function getCronHour() {
+  const row = await db.prepare("SELECT value FROM settings WHERE key = 'whatsapp_cron_hour'").get()
   return parseInt(row?.value || '8', 10)
 }
 
@@ -26,7 +26,7 @@ async function sendDailyReminders() {
   const tomorrowStr = tomorrow.toISOString().split('T')[0]
   const dateFormatted = new Date(tomorrowStr + 'T00:00:00').toLocaleDateString('pt-BR')
 
-  const appointments = db.prepare(`
+  const appointments = await db.prepare(`
     SELECT a.*, p.name as patient_name, p.phone as patient_phone
     FROM appointments a
     JOIN patients p ON p.id = a.patient_id
@@ -41,7 +41,7 @@ async function sendDailyReminders() {
     return
   }
 
-  const template = getTemplate()
+  const template = await getTemplate()
   console.log(`[Cron] Enviando ${toSend.length} lembrete(s) para ${tomorrowStr}...`)
 
   let sent = 0
@@ -69,10 +69,10 @@ async function sendDailyReminders() {
   console.log(`[Cron] Concluído: ${sent} enviado(s), ${failed} falha(s).`)
 }
 
-function startCron() {
+async function startCron() {
   if (cronJob) cronJob.stop()
 
-  const hour = getCronHour()
+  const hour = await getCronHour()
   const expression = `0 ${hour} * * *`
 
   cronJob = cron.schedule(expression, sendDailyReminders, {

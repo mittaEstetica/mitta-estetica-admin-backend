@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import authRouter from './routes/auth.js'
@@ -47,5 +48,7 @@ app.listen(PORT, () => {
     console.log(`[WhatsApp] Erro ao iniciar: ${err.message}`)
   })
 
-  startCron()
+  startCron().catch((err) => {
+    console.log(`[Cron] Erro ao iniciar: ${err.message}`)
+  })
 })
