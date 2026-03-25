@@ -18,8 +18,12 @@ import { startCron } from './cron.js'
 const app = express()
 const PORT = process.env.PORT || 3333
 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:5174']
+
 app.use(cors({
-  origin: 'http://localhost:5174',
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
