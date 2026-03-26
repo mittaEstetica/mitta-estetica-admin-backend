@@ -33,6 +33,9 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const { name, phone, email, cpf, birthDate, address, photo, notes } = req.body
+  if (!name || !phone || !birthDate) {
+    return res.status(400).json({ error: 'Nome, telefone e data de nascimento são obrigatórios' })
+  }
   const id = crypto.randomUUID()
   const createdAt = new Date().toISOString()
 

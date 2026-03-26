@@ -11,6 +11,9 @@ import collaboratorsRouter from './routes/collaborators.js'
 import commissionsRouter from './routes/commissions.js'
 import usersRouter from './routes/users.js'
 import whatsappRouter from './routes/whatsapp.js'
+import patientPhotosRouter from './routes/patientPhotos.js'
+import leadsRouter from './routes/leads.js'
+import quotesRouter from './routes/quotes.js'
 import { requireAuth } from './middleware/auth.js'
 import { connectWhatsApp } from './whatsapp.js'
 import { startCron } from './cron.js'
@@ -30,10 +33,8 @@ app.use(cors({
 }))
 app.use(express.json({ limit: '10mb' }))
 
-// Public auth routes (no token required)
 app.use('/api/auth', authRouter)
 
-// All other routes require authentication
 app.use('/api', requireAuth)
 
 app.use('/api/patients', patientsRouter)
@@ -45,6 +46,9 @@ app.use('/api/stock-movements', stockMovementsRouter)
 app.use('/api/appointments', appointmentsRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/whatsapp', whatsappRouter)
+app.use('/api/patient-photos', patientPhotosRouter)
+app.use('/api/leads', leadsRouter)
+app.use('/api/quotes', quotesRouter)
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' })

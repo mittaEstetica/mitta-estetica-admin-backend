@@ -14,8 +14,9 @@ function toJSON(row) {
     service: row.service,
     date: row.date,
     time: row.time,
+    room: row.room || 'sala1',
     status: row.status,
-    stockUsed: JSON.parse(row.stock_used),
+    stockUsed: JSON.parse(row.stock_used || '[]'),
     notes: row.notes,
     createdAt: row.created_at,
   }
@@ -33,32 +34,32 @@ router.get('/:id', async (req, res) => {
 })
 
 router.post('/', async (req, res) => {
-  const { patientId, packageId, collaboratorId, service, date, time, status, stockUsed, notes } = req.body
+  const { patientId, packageId, collaboratorId, service, date, time, room, status, stockUsed, notes } = req.body
   const id = crypto.randomUUID()
   const createdAt = new Date().toISOString()
 
   await db.prepare(`
-    INSERT INTO appointments (id, patient_id, package_id, collaborator_id, service, date, time, status, stock_used, notes, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, patientId, packageId || null, collaboratorId || null, service, date, time || '', status || 'scheduled', JSON.stringify(stockUsed || []), notes || '', createdAt)
+    INSERT INTO appointments (id, patient_id, package_id, collaborator_id, service, date, time, room, status, stock_used, notes, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, patientId, packageId || null, collaboratorId || null, service, date, time || '', room || 'sala1', status || 'scheduled', JSON.stringify(stockUsed || []), notes || '', createdAt)
 
   res.status(201).json({
     id, patientId, packageId: packageId || undefined,
     collaboratorId: collaboratorId || undefined, service, date,
-    time: time || '', status: status || 'scheduled',
+    time: time || '', room: room || 'sala1', status: status || 'scheduled',
     stockUsed: stockUsed || [], notes: notes || '', createdAt,
   })
 })
 
 router.put('/:id', async (req, res) => {
-  const { patientId, packageId, collaboratorId, service, date, time, status, stockUsed, notes } = req.body
+  const { patientId, packageId, collaboratorId, service, date, time, room, status, stockUsed, notes } = req.body
   const existing = await db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id)
   if (!existing) return res.status(404).json({ error: 'Appointment not found' })
 
   await db.prepare(`
-    UPDATE appointments SET patient_id = ?, package_id = ?, collaborator_id = ?, service = ?, date = ?, time = ?, status = ?, stock_used = ?, notes = ?
+    UPDATE appointments SET patient_id = ?, package_id = ?, collaborator_id = ?, service = ?, date = ?, time = ?, room = ?, status = ?, stock_used = ?, notes = ?
     WHERE id = ?
-  `).run(patientId, packageId || null, collaboratorId || null, service, date, time || '', status, JSON.stringify(stockUsed || []), notes || '', req.params.id)
+  `).run(patientId, packageId || null, collaboratorId || null, service, date, time || '', room || 'sala1', status, JSON.stringify(stockUsed || []), notes || '', req.params.id)
 
   const updated = await db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id)
   res.json(toJSON(updated))

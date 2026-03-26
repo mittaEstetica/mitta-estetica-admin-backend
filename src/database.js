@@ -91,4 +91,50 @@ if (!admin) {
   `).run()
 }
 
+try {
+  await pool.query(`ALTER TABLE appointments ADD COLUMN IF NOT EXISTS room TEXT DEFAULT 'sala1'`)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS patient_photos (
+      id TEXT PRIMARY KEY,
+      patient_id TEXT NOT NULL,
+      photo TEXT NOT NULL,
+      procedure_name TEXT NOT NULL DEFAULT '',
+      date TEXT NOT NULL DEFAULT '',
+      notes TEXT DEFAULT '',
+      created_at TEXT NOT NULL
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS leads (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      phone TEXT DEFAULT '',
+      email TEXT DEFAULT '',
+      source TEXT DEFAULT '',
+      status TEXT DEFAULT 'novo',
+      notes TEXT DEFAULT '',
+      created_at TEXT NOT NULL
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS quotes (
+      id TEXT PRIMARY KEY,
+      patient_id TEXT,
+      lead_id TEXT,
+      client_name TEXT NOT NULL,
+      client_email TEXT DEFAULT '',
+      procedure_name TEXT NOT NULL DEFAULT '',
+      sessions INTEGER DEFAULT 1,
+      total_value NUMERIC DEFAULT 0,
+      payment_method TEXT DEFAULT '',
+      status TEXT DEFAULT 'rascunho',
+      sent_at TEXT,
+      notes TEXT DEFAULT '',
+      created_at TEXT NOT NULL
+    )
+  `)
+} catch (e) {
+  console.log('[Migration]', e.message)
+}
+
 export default db
