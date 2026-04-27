@@ -133,6 +133,16 @@ try {
       created_at TEXT NOT NULL
     )
   `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS transactions (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      amount NUMERIC DEFAULT 0,
+      description TEXT NOT NULL DEFAULT '',
+      date TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `)
 } catch (e) {
   console.log('[Migration]', e.message)
 }

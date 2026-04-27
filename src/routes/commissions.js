@@ -21,11 +21,22 @@ function toJSON(row) {
 router.get('/', async (req, res) => {
   const { collaboratorId } = req.query
   let rows
-  if (collaboratorId) {
-    rows = await db.prepare('SELECT * FROM commissions WHERE collaborator_id = ? ORDER BY created_at DESC').all(collaboratorId)
+
+  const isAdmin = req.user?.role === 'admin' || req.user?.permissions?.includes('*')
+
+  if (!isAdmin) {
+    if (!req.user?.collaboratorId) {
+      return res.status(403).json({ error: 'Acesso negado' })
+    }
+    rows = await db.prepare('SELECT * FROM commissions WHERE collaborator_id = ? ORDER BY created_at DESC').all(req.user.collaboratorId)
   } else {
-    rows = await db.prepare('SELECT * FROM commissions ORDER BY created_at DESC').all()
+    if (collaboratorId) {
+      rows = await db.prepare('SELECT * FROM commissions WHERE collaborator_id = ? ORDER BY created_at DESC').all(collaboratorId)
+    } else {
+      rows = await db.prepare('SELECT * FROM commissions ORDER BY created_at DESC').all()
+    }
   }
+
   res.json(rows.map(toJSON))
 })
 

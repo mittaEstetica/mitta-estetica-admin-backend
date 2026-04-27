@@ -22,15 +22,44 @@ function toJSON(row) {
   }
 }
 
-router.get('/', async (_req, res) => {
-  const rows = await db.prepare('SELECT * FROM packages ORDER BY created_at DESC').all()
-  res.json(rows.map(toJSON))
+router.get('/', async (req, res) => {
+  let rows
+  if (req.user?.role === 'collaborator' && req.user?.collaboratorId) {
+    rows = await db.prepare('SELECT * FROM packages WHERE collaborator_id = ? ORDER BY created_at DESC').all(req.user.collaboratorId)
+  } else {
+    rows = await db.prepare('SELECT * FROM packages ORDER BY created_at DESC').all()
+  }
+
+  const isAdmin = req.user?.role === 'admin' || req.user?.permissions?.includes('*')
+
+  res.json(rows.map(row => {
+    const pkg = toJSON(row)
+    if (!isAdmin) {
+      pkg.paidValue = 0
+      pkg.totalValue = 0
+      pkg.sessionValue = 0
+    }
+    return pkg
+  }))
 })
 
 router.get('/:id', async (req, res) => {
   const row = await db.prepare('SELECT * FROM packages WHERE id = ?').get(req.params.id)
   if (!row) return res.status(404).json({ error: 'Package not found' })
-  res.json(toJSON(row))
+
+  // Ensure collaborator can only see their own package
+  if (req.user?.role === 'collaborator' && req.user?.collaboratorId && row.collaborator_id !== req.user.collaboratorId) {
+    return res.status(403).json({ error: 'Acesso negado' })
+  }
+
+  const pkg = toJSON(row)
+  const isAdmin = req.user?.role === 'admin' || req.user?.permissions?.includes('*')
+  if (!isAdmin) {
+    pkg.paidValue = 0
+    pkg.totalValue = 0
+    pkg.sessionValue = 0
+  }
+  res.json(pkg)
 })
 
 router.post('/', async (req, res) => {
