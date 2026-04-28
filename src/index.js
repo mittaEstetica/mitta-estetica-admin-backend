@@ -15,6 +15,8 @@ import patientPhotosRouter from './routes/patientPhotos.js'
 import leadsRouter from './routes/leads.js'
 import quotesRouter from './routes/quotes.js'
 import transactionsRouter from './routes/transactions.js'
+import accountsPayableRouter from './routes/accountsPayable.js'
+import servicesRouter from './routes/services.js'
 import { requireAuth } from './middleware/auth.js'
 import { connectWhatsApp } from './whatsapp.js'
 import { startCron } from './cron.js'
@@ -51,6 +53,8 @@ app.use('/api/patient-photos', patientPhotosRouter)
 app.use('/api/leads', leadsRouter)
 app.use('/api/quotes', quotesRouter)
 app.use('/api/transactions', transactionsRouter)
+app.use('/api/accounts-payable', accountsPayableRouter)
+app.use('/api/services', servicesRouter)
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' })

@@ -9,10 +9,12 @@ function toJSON(row) {
   return {
     id: row.id,
     type: row.type,
-    amount: row.amount,
+    amount: Number(row.amount),
     description: row.description,
     date: row.date,
     createdAt: row.created_at,
+    paid: row.paid === 1 || row.paid === true,
+    receiptUrl: row.receipt_url,
   }
 }
 
@@ -28,39 +30,72 @@ router.get('/', async (req, res) => {
 
 // POST /api/transactions
 router.post('/', async (req, res) => {
-  const { type, amount, description, date } = req.body
+  const { type, amount, description, date, paid, receiptUrl } = req.body
   const id = crypto.randomUUID()
   const createdAt = new Date().toISOString()
 
   try {
+    // Robust amount parsing
+    let numAmount = 0
+    if (typeof amount === 'number') {
+      numAmount = amount
+    } else if (typeof amount === 'string') {
+      numAmount = parseFloat(amount.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+    }
+
+    const finalType = type || 'saida'
+    const finalDescription = description || ''
+    const finalDate = date || new Date().toISOString().split('T')[0]
+    const finalPaid = !!paid
+
     await db.prepare(`
-      INSERT INTO transactions (id, type, amount, description, date, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(id, type, amount || 0, description || '', date, createdAt)
+      INSERT INTO transactions (id, type, amount, description, date, created_at, paid, receipt_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, finalType, numAmount, finalDescription, finalDate, createdAt, finalPaid, receiptUrl || null)
 
     res.status(201).json({
-      id, type, amount: amount || 0, description: description || '', date, createdAt
+      id, type: finalType, amount: numAmount, description: finalDescription, date: finalDate, createdAt, paid: finalPaid, receiptUrl: receiptUrl || null
     })
   } catch (error) {
+    console.error('[Transactions] POST Error:', error)
     res.status(500).json({ error: 'Failed to create transaction', details: error.message })
   }
 })
 
 // PUT /api/transactions/:id
 router.put('/:id', async (req, res) => {
-  const { type, amount, description, date } = req.body
+  console.log('[Transactions] Received PUT for ID:', req.params.id)
+  console.log('[Transactions] Body:', req.body)
+  
+  let { type, amount, description, date, paid, receiptUrl } = req.body
+  
   try {
     const existing = await db.prepare('SELECT * FROM transactions WHERE id = ?').get(req.params.id)
     if (!existing) return res.status(404).json({ error: 'Transaction not found' })
 
+    // Robust amount parsing
+    let numAmount = 0
+    if (typeof amount === 'number') {
+      numAmount = amount
+    } else if (typeof amount === 'string') {
+      numAmount = parseFloat(amount.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+    }
+
+    // Ensure required fields
+    const finalType = type || existing.type || 'saida'
+    const finalDescription = description || existing.description || ''
+    const finalDate = date || existing.date || new Date().toISOString().split('T')[0]
+    const finalPaid = paid === undefined ? existing.paid : !!paid
+
     await db.prepare(`
-      UPDATE transactions SET type = ?, amount = ?, description = ?, date = ?
+      UPDATE transactions SET type = ?, amount = ?, description = ?, date = ?, paid = ?, receipt_url = ?
       WHERE id = ?
-    `).run(type, amount || 0, description || '', date, req.params.id)
+    `).run(finalType, numAmount, finalDescription, finalDate, finalPaid, receiptUrl || existing.receipt_url, req.params.id)
 
     const updated = await db.prepare('SELECT * FROM transactions WHERE id = ?').get(req.params.id)
     res.json(toJSON(updated))
   } catch (error) {
+    console.error('[Transactions] PUT Error:', error)
     res.status(500).json({ error: 'Failed to update transaction', details: error.message })
   }
 })
