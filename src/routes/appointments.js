@@ -17,6 +17,7 @@ function toJSON(row) {
     room: row.room || 'sala1',
     status: row.status,
     stockUsed: JSON.parse(row.stock_used || '[]'),
+    commissionPercent: row.commission_percent,
     notes: row.notes,
     createdAt: row.created_at,
   }
@@ -34,32 +35,32 @@ router.get('/:id', async (req, res) => {
 })
 
 router.post('/', async (req, res) => {
-  const { patientId, packageId, collaboratorId, service, date, time, room, status, stockUsed, notes } = req.body
+  const { patientId, packageId, collaboratorId, service, date, time, room, status, stockUsed, commissionPercent, notes } = req.body
   const id = crypto.randomUUID()
   const createdAt = new Date().toISOString()
 
   await db.prepare(`
-    INSERT INTO appointments (id, patient_id, package_id, collaborator_id, service, date, time, room, status, stock_used, notes, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, patientId, packageId || null, collaboratorId || null, service, date, time || '', room || 'sala1', status || 'scheduled', JSON.stringify(stockUsed || []), notes || '', createdAt)
+    INSERT INTO appointments (id, patient_id, package_id, collaborator_id, service, date, time, room, status, stock_used, commission_percent, notes, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, patientId, packageId || null, collaboratorId || null, service, date, time || '', room || 'sala1', status || 'scheduled', JSON.stringify(stockUsed || []), commissionPercent || null, notes || '', createdAt)
 
   res.status(201).json({
     id, patientId, packageId: packageId || undefined,
     collaboratorId: collaboratorId || undefined, service, date,
     time: time || '', room: room || 'sala1', status: status || 'scheduled',
-    stockUsed: stockUsed || [], notes: notes || '', createdAt,
+    stockUsed: stockUsed || [], commissionPercent: commissionPercent || undefined, notes: notes || '', createdAt,
   })
 })
 
 router.put('/:id', async (req, res) => {
-  const { patientId, packageId, collaboratorId, service, date, time, room, status, stockUsed, notes } = req.body
+  const { patientId, packageId, collaboratorId, service, date, time, room, status, stockUsed, commissionPercent, notes } = req.body
   const existing = await db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id)
   if (!existing) return res.status(404).json({ error: 'Appointment not found' })
 
   await db.prepare(`
-    UPDATE appointments SET patient_id = ?, package_id = ?, collaborator_id = ?, service = ?, date = ?, time = ?, room = ?, status = ?, stock_used = ?, notes = ?
+    UPDATE appointments SET patient_id = ?, package_id = ?, collaborator_id = ?, service = ?, date = ?, time = ?, room = ?, status = ?, stock_used = ?, commission_percent = ?, notes = ?
     WHERE id = ?
-  `).run(patientId, packageId || null, collaboratorId || null, service, date, time || '', room || 'sala1', status, JSON.stringify(stockUsed || []), notes || '', req.params.id)
+  `).run(patientId, packageId || null, collaboratorId || null, service, date, time || '', room || 'sala1', status, JSON.stringify(stockUsed || []), commissionPercent || null, notes || '', req.params.id)
 
   const updated = await db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id)
   res.json(toJSON(updated))
@@ -109,7 +110,7 @@ router.post('/:id/complete', async (req, res) => {
           const collab = await tx.prepare('SELECT * FROM collaborators WHERE id = ?').get(collabId)
           if (collab) {
             const sessionValue = pkg.session_value || (pkg.total_sessions > 0 ? pkg.total_value / pkg.total_sessions : 0)
-            const percent = collab.commission_percent
+            const percent = apptRow.commission_percent ?? collab.commission_percent
             const collaboratorAmount = sessionValue * percent / 100
             const clinicAmount = sessionValue - collaboratorAmount
             const comId = crypto.randomUUID()

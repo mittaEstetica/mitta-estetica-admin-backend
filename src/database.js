@@ -46,6 +46,7 @@ const db = {
         await client.query('BEGIN')
         const tx = { prepare: stmtApi((sql, params) => client.query(sql, params)) }
         const result = await fn(tx, ...args)
+        await client.query('COMMIT')
         return result
       } catch (e) {
         await client.query('ROLLBACK')
@@ -108,6 +109,7 @@ try {
       time TEXT NOT NULL,
       room TEXT DEFAULT 'sala1',
       status TEXT DEFAULT 'scheduled',
+      commission_percent NUMERIC,
       notes TEXT DEFAULT '',
       created_at TEXT NOT NULL
     )
@@ -129,6 +131,7 @@ try {
   // Migrations for existing tables
   await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT false`)
   await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS receipt_url TEXT`)
+  await pool.query(`ALTER TABLE appointments ADD COLUMN IF NOT EXISTS commission_percent NUMERIC`)
 
   // ... other tables (simplified for now to ensure seeding works)
   await pool.query(`CREATE TABLE IF NOT EXISTS packages (id TEXT PRIMARY KEY, patient_id TEXT, collaborator_id TEXT, name TEXT, services TEXT, total_sessions INTEGER, completed_sessions INTEGER, total_value NUMERIC, session_value NUMERIC, paid_value NUMERIC, status TEXT, created_at TEXT)`)
