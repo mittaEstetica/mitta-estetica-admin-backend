@@ -35,9 +35,18 @@ router.get('/:id', async (req, res) => {
 })
 
 router.post('/', async (req, res) => {
-  const { patientId, packageId, collaboratorId, service, date, time, room, status, stockUsed, commissionPercent, notes } = req.body
+  let { patientId, packageId, collaboratorId, service, date, time, room, status, stockUsed, commissionPercent, notes, sessionValue } = req.body
   const id = crypto.randomUUID()
   const createdAt = new Date().toISOString()
+
+  if (!packageId && sessionValue !== undefined) {
+    const newPkgId = crypto.randomUUID()
+    await db.prepare(`
+      INSERT INTO packages (id, patient_id, collaborator_id, name, services, total_sessions, completed_sessions, total_value, session_value, paid_value, status, commission_percent, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(newPkgId, patientId, collaboratorId || null, `Avulso - ${service}`, JSON.stringify([service]), 1, 0, sessionValue, sessionValue, 0, 'active', commissionPercent !== undefined ? commissionPercent : null, createdAt)
+    packageId = newPkgId
+  }
 
   await db.prepare(`
     INSERT INTO appointments (id, patient_id, package_id, collaborator_id, service, date, time, room, status, stock_used, commission_percent, notes, created_at)
@@ -53,14 +62,25 @@ router.post('/', async (req, res) => {
 })
 
 router.put('/:id', async (req, res) => {
-  const { patientId, packageId, collaboratorId, service, date, time, room, status, stockUsed, commissionPercent, notes } = req.body
+  let { patientId, packageId, collaboratorId, service, date, time, room, status, stockUsed, commissionPercent, notes, sessionValue } = req.body
   const existing = await db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id)
   if (!existing) return res.status(404).json({ error: 'Appointment not found' })
+
+  if (!packageId && sessionValue !== undefined) {
+    const newPkgId = crypto.randomUUID()
+    const createdAt = new Date().toISOString()
+    const isCompleted = status === 'completed'
+    await db.prepare(`
+      INSERT INTO packages (id, patient_id, collaborator_id, name, services, total_sessions, completed_sessions, total_value, session_value, paid_value, status, commission_percent, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(newPkgId, patientId, collaboratorId || null, `Avulso - ${service}`, JSON.stringify([service]), 1, isCompleted ? 1 : 0, sessionValue, sessionValue, 0, isCompleted ? 'completed' : 'active', commissionPercent !== undefined ? commissionPercent : null, createdAt)
+    packageId = newPkgId
+  }
 
   await db.prepare(`
     UPDATE appointments SET patient_id = ?, package_id = ?, collaborator_id = ?, service = ?, date = ?, time = ?, room = ?, status = ?, stock_used = ?, commission_percent = ?, notes = ?
     WHERE id = ?
-  `).run(patientId, packageId || null, collaboratorId || null, service, date, time || '', room || 'sala1', status, JSON.stringify(stockUsed || []), commissionPercent || null, notes || '', req.params.id)
+  `).run(patientId, packageId || null, collaboratorId || null, service, date, time || '', room || 'sala1', status, JSON.stringify(stockUsed || []), commissionPercent !== undefined ? commissionPercent : null, notes || '', req.params.id)
 
   const updated = await db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id)
   res.json(toJSON(updated))
@@ -110,7 +130,7 @@ router.post('/:id/complete', async (req, res) => {
           const collab = await tx.prepare('SELECT * FROM collaborators WHERE id = ?').get(collabId)
           if (collab) {
             const sessionValue = pkg.session_value || (pkg.total_sessions > 0 ? pkg.total_value / pkg.total_sessions : 0)
-            const percent = apptRow.commission_percent ?? collab.commission_percent
+            const percent = apptRow.commission_percent ?? pkg.commission_percent ?? collab.commission_percent
             const collaboratorAmount = sessionValue * percent / 100
             const clinicAmount = sessionValue - collaboratorAmount
             const comId = crypto.randomUUID()

@@ -132,9 +132,10 @@ try {
   await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT false`)
   await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS receipt_url TEXT`)
   await pool.query(`ALTER TABLE appointments ADD COLUMN IF NOT EXISTS commission_percent NUMERIC`)
+  await pool.query(`ALTER TABLE packages ADD COLUMN IF NOT EXISTS commission_percent NUMERIC`)
 
   // ... other tables (simplified for now to ensure seeding works)
-  await pool.query(`CREATE TABLE IF NOT EXISTS packages (id TEXT PRIMARY KEY, patient_id TEXT, collaborator_id TEXT, name TEXT, services TEXT, total_sessions INTEGER, completed_sessions INTEGER, total_value NUMERIC, session_value NUMERIC, paid_value NUMERIC, status TEXT, created_at TEXT)`)
+  await pool.query(`CREATE TABLE IF NOT EXISTS packages (id TEXT PRIMARY KEY, patient_id TEXT, collaborator_id TEXT, name TEXT, services TEXT, total_sessions INTEGER, completed_sessions INTEGER, total_value NUMERIC, session_value NUMERIC, paid_value NUMERIC, commission_percent NUMERIC, status TEXT, created_at TEXT)`)
   await pool.query(`CREATE TABLE IF NOT EXISTS stock_items (id TEXT PRIMARY KEY, name TEXT, category TEXT, quantity INTEGER, min_quantity INTEGER, unit TEXT, cost_price NUMERIC, created_at TEXT)`)
   await pool.query(`CREATE TABLE IF NOT EXISTS stock_movements (id TEXT PRIMARY KEY, stock_item_id TEXT, type TEXT, quantity INTEGER, reason TEXT, appointment_id TEXT, created_at TEXT)`)
   await pool.query(`CREATE TABLE IF NOT EXISTS commissions (id TEXT PRIMARY KEY, collaborator_id TEXT, package_id TEXT, appointment_id TEXT, session_value NUMERIC, commission_percent NUMERIC, collaborator_amount NUMERIC, clinic_amount NUMERIC, created_at TEXT)`)

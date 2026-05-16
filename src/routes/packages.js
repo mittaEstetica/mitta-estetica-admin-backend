@@ -14,10 +14,11 @@ function toJSON(row) {
     services: JSON.parse(row.services),
     totalSessions: row.total_sessions,
     completedSessions: row.completed_sessions,
-    totalValue: row.total_value,
-    sessionValue: row.session_value || 0,
-    paidValue: row.paid_value,
+    totalValue: Number(row.total_value) || 0,
+    sessionValue: Number(row.session_value) || 0,
+    paidValue: row.paid_value !== null ? Number(row.paid_value) : 0,
     status: row.status,
+    commissionPercent: row.commission_percent,
     createdAt: row.created_at,
   }
 }
@@ -63,36 +64,37 @@ router.get('/:id', async (req, res) => {
 })
 
 router.post('/', async (req, res) => {
-  const { patientId, collaboratorId, name, services, totalSessions, completedSessions, totalValue, sessionValue, paidValue, status } = req.body
+  const { patientId, collaboratorId, name, services, totalSessions, completedSessions, totalValue, sessionValue, paidValue, commissionPercent, status } = req.body
   const id = crypto.randomUUID()
   const createdAt = new Date().toISOString()
   const sv = sessionValue || (totalSessions > 0 ? (totalValue || 0) / (totalSessions || 1) : 0)
 
   await db.prepare(`
-    INSERT INTO packages (id, patient_id, collaborator_id, name, services, total_sessions, completed_sessions, total_value, session_value, paid_value, status, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, patientId, collaboratorId || null, name, JSON.stringify(services || []), totalSessions || 1, completedSessions || 0, totalValue || 0, sv, paidValue || 0, status || 'active', createdAt)
+    INSERT INTO packages (id, patient_id, collaborator_id, name, services, total_sessions, completed_sessions, total_value, session_value, paid_value, commission_percent, status, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, patientId, collaboratorId || null, name, JSON.stringify(services || []), totalSessions || 1, completedSessions || 0, totalValue || 0, sv, paidValue || 0, commissionPercent !== undefined ? commissionPercent : null, status || 'active', createdAt)
 
   res.status(201).json({
     id, patientId, collaboratorId: collaboratorId || undefined, name,
     services: services || [], totalSessions: totalSessions || 1,
     completedSessions: completedSessions || 0, totalValue: totalValue || 0,
     sessionValue: sv, paidValue: paidValue || 0,
+    commissionPercent: commissionPercent !== undefined ? commissionPercent : undefined,
     status: status || 'active', createdAt,
   })
 })
 
 router.put('/:id', async (req, res) => {
-  const { patientId, collaboratorId, name, services, totalSessions, completedSessions, totalValue, sessionValue, paidValue, status } = req.body
+  const { patientId, collaboratorId, name, services, totalSessions, completedSessions, totalValue, sessionValue, paidValue, commissionPercent, status } = req.body
   const existing = await db.prepare('SELECT * FROM packages WHERE id = ?').get(req.params.id)
   if (!existing) return res.status(404).json({ error: 'Package not found' })
 
   const sv = sessionValue || (totalSessions > 0 ? (totalValue || 0) / (totalSessions || 1) : 0)
 
   await db.prepare(`
-    UPDATE packages SET patient_id = ?, collaborator_id = ?, name = ?, services = ?, total_sessions = ?, completed_sessions = ?, total_value = ?, session_value = ?, paid_value = ?, status = ?
+    UPDATE packages SET patient_id = ?, collaborator_id = ?, name = ?, services = ?, total_sessions = ?, completed_sessions = ?, total_value = ?, session_value = ?, paid_value = ?, commission_percent = ?, status = ?
     WHERE id = ?
-  `).run(patientId, collaboratorId || null, name, JSON.stringify(services || []), totalSessions, completedSessions, totalValue, sv, paidValue, status, req.params.id)
+  `).run(patientId ?? existing.patient_id, collaboratorId !== undefined ? (collaboratorId || null) : existing.collaborator_id, name ?? existing.name, services ? JSON.stringify(services) : existing.services, totalSessions ?? existing.total_sessions, completedSessions ?? existing.completed_sessions, totalValue ?? existing.total_value, sv, paidValue ?? existing.paid_value ?? 0, commissionPercent !== undefined ? commissionPercent : existing.commission_percent, status ?? existing.status, req.params.id)
 
   const updated = await db.prepare('SELECT * FROM packages WHERE id = ?').get(req.params.id)
   res.json(toJSON(updated))
